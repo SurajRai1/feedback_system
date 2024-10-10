@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Feedback Analysis</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Admin Feedback Analysis</h1>
+
+        <h2>Average Ratings per Course</h2>
+        <canvas id="ratingsChart"></canvas>
+
+        <h2>Common Themes in Comments</h2>
+        <ul id="commonThemes"></ul>
+    </div>
+
+    <script>
+        // Ratings data for chart
+        const ratings = {{ ratings | tojson }};
+        const labels = ratings.map(item => item[0]);
+        const data = ratings.map(item => item[1]);
+
+        const ctx = document.getElementById('ratingsChart').getContext('2d');
+        const ratingsChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Average Rating',
+                    data: data,
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // Common themes in comments
+        const commonThemes = JSON.parse('{{ common_themes | safe }}');
+        const themesList = document.getElementById('commonThemes');
+        commonThemes.forEach(theme => {
+            const listItem = document.createElement('li');
+            listItem.textContent = `${theme[0]}: ${theme[1]} mentions`;
+            themesList.appendChild(listItem);
+        });
+    </script>
+</body>
+</html>
