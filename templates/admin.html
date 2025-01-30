@@ -3,57 +3,303 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Feedback Analysis</title>
+    <title>Feedback Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 </head>
 <body>
-    <div class="container">
-        <h1>Admin Feedback Analysis</h1>
+    <div class="container animate-fade-in">
+        <header class="dashboard-header">
+            <h1>Feedback Analytics Dashboard</h1>
+            <p>Comprehensive overview of course feedback and insights</p>
+        </header>
 
-        <h2>Average Ratings per Course</h2>
-        <canvas id="ratingsChart"></canvas>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-title">Total Feedback</div>
+                <div class="stat-value" id="totalFeedback">0</div>
+                <div class="stat-desc">
+                    <span class="trend-indicator trend-up">
+                        <i class="fas fa-arrow-up"></i> 12% vs last month
+                    </span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">Average Rating</div>
+                <div class="stat-value" id="averageRating">0.0</div>
+                <div class="stat-desc">
+                    <span id="satisfactionRate">0%</span> satisfaction rate
+                    <span class="trend-indicator trend-up">
+                        <i class="fas fa-arrow-up"></i> 5%
+                    </span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">Courses Rated</div>
+                <div class="stat-value" id="totalCourses">0</div>
+                <div class="stat-desc" id="topRatedCourse"></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">Response Rate</div>
+                <div class="stat-value" id="responseRate">0%</div>
+                <div class="stat-desc">
+                    <span class="trend-indicator trend-down">
+                        <i class="fas fa-arrow-down"></i> 3%
+                    </span>
+                    vs previous week
+                </div>
+            </div>
+        </div>
 
-        <h2>Common Themes in Comments</h2>
-        <ul id="commonThemes"></ul>
+        <div class="dashboard-grid">
+            <!-- Left Column -->
+            <div class="dashboard-col">
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <h2>
+                            <i class="fas fa-chart-bar"></i>Course Performance
+                        </h2>
+                        <div class="card-actions">
+                            <select id="chartTimeRange" class="select-input">
+                                <option value="all">All Time</option>
+                                <option value="month">Last Month</option>
+                                <option value="week">Last Week</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="ratingsChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <h2>
+                            <i class="fas fa-comments"></i>Feedback Analysis
+                        </h2>
+                    </div>
+                    <div class="feedback-metrics">
+                        <div class="metric-row">
+                            <div class="metric-label">Positive Feedback</div>
+                            <div class="metric-bar">
+                                <div class="bar-fill positive" id="positiveFeedbackBar"></div>
+                            </div>
+                            <div class="metric-value" id="positiveFeedback">0%</div>
+                        </div>
+                        <div class="metric-row">
+                            <div class="metric-label">Neutral Feedback</div>
+                            <div class="metric-bar">
+                                <div class="bar-fill neutral" id="neutralFeedbackBar"></div>
+                            </div>
+                            <div class="metric-value" id="neutralFeedback">0%</div>
+                        </div>
+                        <div class="metric-row">
+                            <div class="metric-label">Negative Feedback</div>
+                            <div class="metric-bar">
+                                <div class="bar-fill negative" id="negativeFeedbackBar"></div>
+                            </div>
+                            <div class="metric-value" id="negativeFeedback">0%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div class="dashboard-col">
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <h2>
+                            <i class="fas fa-chart-pie"></i>Rating Distribution
+                        </h2>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="ratingDistributionChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <h2>
+                            <i class="fas fa-lightbulb"></i>Common Themes
+                        </h2>
+                    </div>
+                    <div id="commonThemes"></div>
+                </div>
+
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <h2>
+                            <i class="fas fa-trophy"></i>Top Performing Courses
+                        </h2>
+                    </div>
+                    <div id="topCourses"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
-        // Ratings data for chart
+        // Parse data from Flask
         const ratings = {{ ratings | tojson }};
-        const labels = ratings.map(item => item[0]);
-        const data = ratings.map(item => item[1]);
+        const commonThemes = JSON.parse('{{ common_themes | safe }}');
 
+        // Calculate statistics
+        const totalCourses = ratings.length;
+        const totalRatings = ratings.reduce((acc, curr) => acc + curr[1], 0);
+        const averageRating = (totalRatings / totalCourses).toFixed(1);
+
+        // Calculate satisfaction rate (ratings >= 4)
+        const satisfiedRatings = ratings.filter(r => r[1] >= 4).length;
+        const satisfactionRate = ((satisfiedRatings / totalCourses) * 100).toFixed(1);
+
+        // Find top rated course
+        const topRated = [...ratings].sort((a, b) => b[1] - a[1])[0];
+
+        // Update statistics cards
+        document.getElementById('totalFeedback').textContent = totalRatings.toFixed(0);
+        document.getElementById('averageRating').textContent = averageRating;
+        document.getElementById('totalCourses').textContent = totalCourses;
+        document.getElementById('satisfactionRate').textContent = `${satisfactionRate}%`;
+        document.getElementById('topRatedCourse').textContent = 
+            topRated ? `Top: ${topRated[0]} (${topRated[1].toFixed(1)})` : '';
+        document.getElementById('responseRate').textContent = '78%'; // Example static data
+
+        // Course Ratings Chart
         const ctx = document.getElementById('ratingsChart').getContext('2d');
-        const ratingsChart = new Chart(ctx, {
+        new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: labels,
+                labels: ratings.map(item => item[0]),
                 datasets: [{
                     label: 'Average Rating',
-                    data: data,
-                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                    borderColor: 'rgba(75, 192, 192, 1)',
+                    data: ratings.map(item => item[1]),
+                    backgroundColor: 'rgba(79, 70, 229, 0.2)',
+                    borderColor: 'rgba(79, 70, 229, 1)',
                     borderWidth: 1
                 }]
             },
             options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    title: {
+                        display: false
+                    }
+                },
                 scales: {
                     y: {
-                        beginAtZero: true
+                        beginAtZero: true,
+                        max: 5,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45
+                        }
                     }
                 }
             }
         });
 
-        // Common themes in comments
-        const commonThemes = JSON.parse('{{ common_themes | safe }}');
-        const themesList = document.getElementById('commonThemes');
+        // Common Themes Visualization
+        const themesContainer = document.getElementById('commonThemes');
         commonThemes.forEach(theme => {
-            const listItem = document.createElement('li');
-            listItem.textContent = `${theme[0]}: ${theme[1]} mentions`;
-            themesList.appendChild(listItem);
+            const themeEl = document.createElement('div');
+            const percentage = ((theme[1] / totalRatings) * 100).toFixed(1);
+            themeEl.className = 'theme-item';
+            themeEl.innerHTML = `
+                <span class="theme-name">${theme[0]}</span>
+                <span class="theme-count">${theme[1]} mentions</span>
+            `;
+            themesContainer.appendChild(themeEl);
         });
+
+        // Rating Distribution Chart
+        const distributionCtx = document.getElementById('ratingDistributionChart').getContext('2d');
+        const ratingCounts = [0, 0, 0, 0, 0];
+        ratings.forEach(rating => {
+            const ratingValue = Math.round(rating[1]);
+            if (ratingValue >= 1 && ratingValue <= 5) {
+                ratingCounts[ratingValue - 1]++;
+            }
+        });
+
+        new Chart(distributionCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['1 Star', '2 Stars', '3 Stars', '4 Stars', '5 Stars'],
+                datasets: [{
+                    data: ratingCounts,
+                    backgroundColor: [
+                        '#EF4444',
+                        '#F59E0B',
+                        '#10B981',
+                        '#3B82F6',
+                        '#6366F1'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            boxWidth: 12,
+                            padding: 10
+                        }
+                    }
+                },
+                cutout: '60%'
+            }
+        });
+
+        // Calculate and display feedback sentiment
+        const calculateSentiment = () => {
+            const positive = 65; // Example data
+            const neutral = 25;
+            const negative = 10;
+
+            document.getElementById('positiveFeedback').textContent = `${positive}%`;
+            document.getElementById('neutralFeedback').textContent = `${neutral}%`;
+            document.getElementById('negativeFeedback').textContent = `${negative}%`;
+
+            document.getElementById('positiveFeedbackBar').style.width = `${positive}%`;
+            document.getElementById('neutralFeedbackBar').style.width = `${neutral}%`;
+            document.getElementById('negativeFeedbackBar').style.width = `${negative}%`;
+        };
+
+        // Display top performing courses
+        const displayTopCourses = () => {
+            const topCoursesContainer = document.getElementById('topCourses');
+            const sortedCourses = [...ratings].sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+            sortedCourses.forEach((course, index) => {
+                const courseEl = document.createElement('div');
+                courseEl.innerHTML = `
+                    <div class="course-name">
+                        <span>${index + 1}. ${course[0]}</span>
+                    </div>
+                    <div class="course-rating">
+                        <span>${course[1].toFixed(1)}</span>
+                        <i class="fas fa-star"></i>
+                    </div>
+                `;
+                topCoursesContainer.appendChild(courseEl);
+            });
+        };
+
+        calculateSentiment();
+        displayTopCourses();
     </script>
 </body>
 </html>

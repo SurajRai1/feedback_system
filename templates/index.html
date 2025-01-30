@@ -3,39 +3,138 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Feedback Form</title>
+    <title>Course Feedback System</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <div class="container">
-        <h1>Submit Your Feedback</h1>
-        <form action="/submit_feedback" method="POST">
-            <label for="name">Name:</label>
-            <input type="text" id="name" name="name" required>
+    <div class="container animate-fade-in">
+        <header class="text-center">
+            <h1 class="text-3xl font-bold mb-2">Course Feedback</h1>
+            <p class="text-gray-600 mb-8">We value your feedback! Help us improve our courses.</p>
+        </header>
 
-            <label for="email">Email:</label>
-            <input type="email" id="email" name="email" required>
-
-            <label for="course_name">Course Name:</label>
-            <input type="text" id="course_name" name="course_name" required>
-
-            <label for="rating">Rating (1 to 5):</label>
-            <input type="number" id="rating" name="rating" min="1" max="5" required>
-
-            <label for="comments">Comments:</label>
-            <textarea id="comments" name="comments"></textarea>
-
-            <button type="submit">Submit Feedback</button>
-        </form>
-        {% with messages = get_flashed_messages() %}
+        {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-        <ul>
-            {% for message in messages %}
-            <li>{{ message }}</li>
+        <div class="flash-messages">
+            {% for category, message in messages %}
+            <div class="flash-message flash-{{ category }} animate-fade-in">
+                <i class="fas {% if category == 'success' %}fa-check-circle{% else %}fa-exclamation-circle{% endif %} mr-2"></i>
+                {{ message }}
+            </div>
             {% endfor %}
-        </ul>
+        </div>
         {% endif %}
         {% endwith %}
+
+        <div class="form-container">
+            <form id="feedbackForm" action="/submit_feedback" method="POST" class="space-y-6">
+                <div class="form-group">
+                    <label for="name">
+                        <i class="fas fa-user text-gray-400 mr-2"></i>Full Name
+                    </label>
+                    <input type="text" id="name" name="name" required
+                           placeholder="Enter your full name"
+                           class="input-field">
+                </div>
+
+                <div class="form-group">
+                    <label for="email">
+                        <i class="fas fa-envelope text-gray-400 mr-2"></i>Email Address
+                    </label>
+                    <input type="email" id="email" name="email" required
+                           placeholder="Enter your email address"
+                           class="input-field">
+                </div>
+
+                <div class="form-group">
+                    <label for="course_name">
+                        <i class="fas fa-book text-gray-400 mr-2"></i>Course Name
+                    </label>
+                    <input type="text" id="course_name" name="course_name" required
+                           placeholder="Enter the course name"
+                           class="input-field">
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <i class="fas fa-star text-gray-400 mr-2"></i>Rating
+                    </label>
+                    <div class="rating-container" id="ratingStars">
+                        <input type="hidden" id="rating" name="rating" required value="">
+                        <i class="star fas fa-star" data-rating="1"></i>
+                        <i class="star fas fa-star" data-rating="2"></i>
+                        <i class="star fas fa-star" data-rating="3"></i>
+                        <i class="star fas fa-star" data-rating="4"></i>
+                        <i class="star fas fa-star" data-rating="5"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="comments">
+                        <i class="fas fa-comment text-gray-400 mr-2"></i>Comments
+                    </label>
+                    <textarea id="comments" name="comments" rows="4"
+                              placeholder="Share your thoughts about the course..."
+                              class="input-field"></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-full">
+                    <i class="fas fa-paper-plane mr-2"></i>Submit Feedback
+                </button>
+            </form>
+        </div>
     </div>
+
+    <script>
+        // Interactive star rating
+        document.getElementById('ratingStars').addEventListener('click', function(e) {
+            if (e.target.classList.contains('star')) {
+                const rating = e.target.dataset.rating;
+                document.getElementById('rating').value = rating;
+                
+                // Update stars visual
+                document.querySelectorAll('.star').forEach(star => {
+                    star.classList.remove('active');
+                    if (star.dataset.rating <= rating) {
+                        star.classList.add('active');
+                    }
+                });
+            }
+        });
+
+        // Hover effect for stars
+        document.querySelectorAll('.star').forEach(star => {
+            star.addEventListener('mouseover', function() {
+                const rating = this.dataset.rating;
+                document.querySelectorAll('.star').forEach(s => {
+                    s.classList.remove('active');
+                    if (s.dataset.rating <= rating) {
+                        s.classList.add('active');
+                    }
+                });
+            });
+        });
+
+        // Reset stars to selected rating when mouse leaves container
+        document.getElementById('ratingStars').addEventListener('mouseleave', function() {
+            const rating = document.getElementById('rating').value;
+            document.querySelectorAll('.star').forEach(star => {
+                star.classList.remove('active');
+                if (star.dataset.rating <= rating) {
+                    star.classList.add('active');
+                }
+            });
+        });
+
+        // Form validation
+        document.getElementById('feedbackForm').addEventListener('submit', function(e) {
+            const rating = document.getElementById('rating').value;
+            if (!rating) {
+                e.preventDefault();
+                alert('Please select a rating before submitting.');
+            }
+        });
+    </script>
 </body>
 </html>
